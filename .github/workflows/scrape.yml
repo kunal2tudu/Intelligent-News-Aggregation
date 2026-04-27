@@ -1,0 +1,40 @@
+name: Daily News Scraper
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Most news sites have significant updates by early morning (EST/GMT). 
+    # Running this at 08:00 UTC (which is 4:00 AM EST, 9:00 AM BST, or 1:30 PM IST)
+    # captures the overnight news effectively.
+    - cron: '0 8 * * *'
+  workflow_dispatch: # Allows manual triggering of the workflow from the GitHub UI
+
+jobs:
+  scrape-news:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: docker build -t news-scraper:latest .
+
+      - name: Run Scraper in Docker
+        # We mount the local 'reports' directory to '/app/reports' inside the container
+        # so that the generated reports are available to the host runner.
+        run: |
+          mkdir -p reports
+          docker run --rm -v ${{ github.workspace }}/reports:/app/reports news-scraper:latest
+
+      - name: Upload Reports as Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: news-reports
+          path: reports/
+          retention-days: 7
